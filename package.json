@@ -1,0 +1,17 @@
+{
+  "name": "b2-transformers-video-object-detection",
+  "version": "1.0.0",
+  "description": "Real-time Video Object Detection with Transformers.js and Backblaze B2",
+  "scripts": {
+    "install:backend": "cd backend && npm install",
+    "start:backend": "cd backend && npm start",
+    "dev:backend": "cd backend && npm run dev",
+    "start:frontend": "cd frontend && python3 -m http.server 8080",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "keywords": ["yolov9", "object-detection", "b2", "backblaze", "transformers.js", "computer-vision"],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B2 + Video Object Detection Monitor</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📹</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.8em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 1000px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .video-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #1a1a2e;
+            aspect-ratio: 4/3;
+            cursor: pointer;
+            transition: border-color 0.3s, background 0.3s;
+        }
+
+        .video-container:not(.active):hover {
+            border-color: #764ba2;
+            background: #252547;
+        }
+
+        .video-container.active {
+            border-style: solid;
+            cursor: default;
+        }
+
+        .click-to-start {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            pointer-events: none;
+        }
+
+        .click-to-start .icon {
+            font-size: 4em;
+            margin-bottom: 10px;
+        }
+
+        .click-to-start .text {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .video-container.active .click-to-start {
+            display: none;
+        }
+
+        video, canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        canvas {
+            display: none;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .bounding-box {
+            position: absolute;
+            box-sizing: border-box;
+            border: solid 2px;
+        }
+
+        .bounding-box-label {
+            color: white;
+            position: absolute;
+            font-size: 11px;
+            margin: -18px 0 0 -2px;
+            padding: 2px 4px;
+            white-space: nowrap;
+        }
+
+        .status-bar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .fps-display, .recording-indicator {
+            background: rgba(0,0,0,0.7);
+            color: #4ade80;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .recording-indicator {
+            color: #ef4444;
+            display: none;
+        }
+
+        .recording-indicator.active {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            animation: pulse 1.5s infinite;
+        }
+
+        .recording-dot {
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 10px;
+        }
+
+        .control-group {
+            flex: 1;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .control-group label {
+            display: block;
+            color: #555;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.8em;
+        }
+
+        .control-group input[type="range"],
+        .control-group select {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .control-group .value {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 0.85em;
+            margin-top: 3px;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+            flex: 1;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: #6b7280;
+        }
+
+        button.recording {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        /* Feed Section */
+        .feed-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .feed-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .feed-header h2 {
+            color: #333;
+            font-size: 1.2em;
+        }
+
+        .feed-stats {
+            color: #666;
+            font-size: 0.85em;
+        }
+
+        .feed-container {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 500px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .feed-empty {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+
+        .feed-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+        }
+
+        .feed-item {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            animation: slideIn 0.4s ease-out;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .feed-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .feed-item img {
+            width: 100%;
+            aspect-ratio: 4/3;
+            object-fit: cover;
+            display: block;
+        }
+
+        .feed-item-info {
+            padding: 8px 10px;
+        }
+
+        .feed-item-time {
+            font-size: 0.75em;
+            color: #666;
+        }
+
+        .feed-item-objects {
+            font-size: 0.8em;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .feed-item-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            margin-top: 5px;
+        }
+
+        .feed-item-tag {
+            font-size: 0.65em;
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        /* Use Case Banner */
+        .use-case-banner {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-left: 4px solid #667eea;
+            padding: 12px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .use-case-banner p {
+            margin: 0;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        .use-cases {
+            display: flex;
+            gap: 15px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .use-case {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.85em;
+            color: #667eea;
+        }
+
+        .status-message {
+            background: #f8f9ff;
+            border-left: 4px solid #667eea;
+            padding: 10px 15px;
+            margin-top: 15px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        .status-message.show {
+            display: block;
+        }
+
+        .status-message.error {
+            background: #fff5f5;
+            border-left-color: #e53e3e;
+        }
+
+        .status-message.success {
+            background: #f0fff4;
+            border-left-color: #38a169;
+        }
+
+        .footer-links {
+            text-align: center;
+            padding: 15px;
+            color: #666;
+            font-size: 0.85em;
+        }
+
+        .footer-links a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+
+        /* Modal for enlarged view */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow: auto;
+        }
+
+        .modal-image {
+            width: 100%;
+            display: block;
+        }
+
+        .modal-info {
+            padding: 20px;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="container">
+            <h1>Video Object Detection Monitor</h1>
+            <p class="subtitle">Real-time monitoring with auto-capture to Backblaze B2</p>
+
+            <div class="use-case-banner">
+                <p><strong>Use Cases:</strong></p>
+                <div class="use-cases">
+                    <span class="use-case">Baby Monitoring</span>
+                    <span class="use-case">Pet Watching</span>
+                    <span class="use-case">Backyard Security</span>
+                    <span class="use-case">Wildlife Camera</span>
+                </div>
+            </div>
+
+            <div class="layout">
+                <div class="video-section">
+                    <div class="video-container" id="videoContainer">
+                        <div class="status-bar">
+                            <div class="fps-display" id="fps">Loading model...</div>
+                            <div class="recording-indicator" id="recordingIndicator">
+                                <span class="recording-dot"></span>
+                                <span>Auto-capture</span>
+                            </div>
+                        </div>
+                        <div class="click-to-start" id="clickToStart">
+                            <div class="icon">📹</div>
+                            <div class="text">Click to start camera</div>
+                        </div>
+                        <video id="video" autoplay muted playsinline></video>
+                        <canvas id="canvas"></canvas>
+                        <div id="overlay"></div>
+                    </div>
+
+                    <div class="controls">
+                        <div class="control-group">
+                            <label>Threshold</label>
+                            <input type="range" id="threshold" min="0.01" max="1" step="0.01" value="0.25" disabled>
+                            <div class="value" id="threshold-value">0.25</div>
+                        </div>
+                        <div class="control-group">
+                            <label>Image Size</label>
+                            <input type="range" id="size" min="64" max="256" step="8" value="128" disabled>
+                            <div class="value" id="size-value">128</div>
+                        </div>
+                        <div class="control-group">
+                            <label>Capture Interval</label>
+                            <select id="interval" disabled>
+                                <option value="5">5 seconds</option>
+                                <option value="10" selected>10 seconds</option>
+                                <option value="30">30 seconds</option>
+                                <option value="60">1 minute</option>
+                                <option value="300">5 minutes</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="buttons">
+                        <button id="startBtn">Start Camera</button>
+                        <button id="autoBtn" class="secondary" disabled>Start Auto-Capture</button>
+                        <button id="captureBtn" class="secondary" disabled>Capture Now</button>
+                    </div>
+
+                    <div class="status-message" id="status"></div>
+                </div>
+
+                <div class="feed-section">
+                    <div class="feed-header">
+                        <h2>Detection Feed</h2>
+                        <span class="feed-stats" id="feedStats">0 captures</span>
+                    </div>
+                    <div class="feed-container" id="feedContainer">
+                        <div class="feed-empty" id="feedEmpty">
+                            Start auto-capture to see detections here
+                        </div>
+                        <div class="feed-grid" id="feedGrid"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-links">
+            <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a>
+            <a href="https://www.backblaze.com/cloud-storage" target="_blank">Backblaze B2</a>
+            <a href="https://github.com/huggingface/transformers.js" target="_blank">GitHub</a>
+        </div>
+    </div>
+
+    <!-- Modal for enlarged view -->
+    <div class="modal" id="modal">
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div class="modal-content">
+            <img class="modal-image" id="modalImage" src="">
+            <div class="modal-info" id="modalInfo"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { AutoModel, AutoProcessor, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.1';
+
+        const API_BASE = window.location.origin;
+
+        // Elements
+        const fps = document.getElementById('fps');
+        const videoContainer = document.getElementById('videoContainer');
+        const clickToStart = document.getElementById('clickToStart');
+        const overlay = document.getElementById('overlay');
+        const canvas = document.getElementById('canvas');
+        const video = document.getElementById('video');
+        const thresholdSlider = document.getElementById('threshold');
+        const thresholdLabel = document.getElementById('threshold-value');
+        const sizeSlider = document.getElementById('size');
+        const sizeLabel = document.getElementById('size-value');
+        const intervalSelect = document.getElementById('interval');
+        const startBtn = document.getElementById('startBtn');
+        const autoBtn = document.getElementById('autoBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const status = document.getElementById('status');
+        const feedGrid = document.getElementById('feedGrid');
+        const feedEmpty = document.getElementById('feedEmpty');
+        const feedStats = document.getElementById('feedStats');
+        const recordingIndicator = document.getElementById('recordingIndicator');
+
+        let model = null;
+        let processor = null;
+        let isRunning = false;
+        let isAutoCapture = false;
+        let autoCaptureInterval = null;
+        let currentDetections = [];
+        let captureCount = 0;
+        let feedItems = [];
+
+        function showStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = 'status-message show ' + type;
+        }
+
+        function hideStatus() {
+            status.className = 'status-message';
+        }
+
+        function setStreamSize(width, height) {
+            video.width = canvas.width = Math.round(width);
+            video.height = canvas.height = Math.round(height);
+        }
+
+        // Load model
+        fps.textContent = 'Loading model...';
+        const model_id = 'Xenova/gelan-c_all';
+
+        try {
+            model = await AutoModel.from_pretrained(model_id);
+            processor = await AutoProcessor.from_pretrained(model_id);
+            fps.textContent = 'Model ready - Click Start';
+
+            thresholdSlider.disabled = false;
+            sizeSlider.disabled = false;
+            intervalSelect.disabled = false;
+        } catch (error) {
+            fps.textContent = 'Error loading model';
+            showStatus('Failed to load model: ' + error.message, 'error');
+        }
+
+        // Control handlers
+        let threshold = 0.25;
+        thresholdSlider.addEventListener('input', () => {
+            threshold = Number(thresholdSlider.value);
+            thresholdLabel.textContent = threshold.toFixed(2);
+        });
+
+        let size = 128;
+        sizeSlider.addEventListener('input', () => {
+            size = Number(sizeSlider.value);
+            sizeLabel.textContent = size;
+            if (processor) {
+                processor.feature_extractor.size = { shortest_edge: size };
+            }
+        });
+
+        const COLOURS = [
+            '#EF4444', '#4299E1', '#059669', '#FBBF24', '#4B52B1',
+            '#7B3AC2', '#ED507A', '#1DD1A1', '#F3873A', '#4B5563',
+            '#DC2626', '#1852B4', '#18A35D', '#F59E0B', '#4059BE',
+            '#6027A5', '#D63D60', '#00AC9B', '#E64A19', '#272A34',
+        ];
+
+        function renderBox([xmin, ymin, xmax, ymax, score, id], [w, h]) {
+            if (score < threshold) return null;
+
+            const color = COLOURS[id % COLOURS.length];
+            const label = model.config.id2label[id];
+
+            const boxElement = document.createElement('div');
+            boxElement.className = 'bounding-box';
+            Object.assign(boxElement.style, {
+                borderColor: color,
+                left: (100 * xmin) / w + '%',
+                top: (100 * ymin) / h + '%',
+                width: (100 * (xmax - xmin)) / w + '%',
+                height: (100 * (ymax - ymin)) / h + '%',
+            });
+
+            const labelElement = document.createElement('span');
+            labelElement.textContent = `${label} (${(100 * score).toFixed(0)}%)`;
+            labelElement.className = 'bounding-box-label';
+            labelElement.style.backgroundColor = color;
+
+            boxElement.appendChild(labelElement);
+            overlay.appendChild(boxElement);
+
+            // Store normalized coordinates (0-1) for capture
+            return {
+                label,
+                score,
+                bbox: [xmin / w, ymin / h, xmax / w, ymax / h]
+            };
+        }
+
+        let isProcessing = false;
+        let previousTime;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+
+        function updateCanvas() {
+            if (!isRunning) return;
+
+            const { width, height } = canvas;
+            context.drawImage(video, 0, 0, width, height);
+
+            if (!isProcessing && model && processor) {
+                isProcessing = true;
+                (async function () {
+                    const pixelData = context.getImageData(0, 0, width, height).data;
+                    const image = new RawImage(pixelData, width, height, 4);
+
+                    const inputs = await processor(image);
+                    const { outputs } = await model(inputs);
+
+                    overlay.innerHTML = '';
+                    currentDetections = [];
+
+                    const sizes = inputs.reshaped_input_sizes[0].reverse();
+                    outputs.tolist().forEach((x) => {
+                        const detection = renderBox(x, sizes);
+                        if (detection) {
+                            currentDetections.push(detection);
+                        }
+                    });
+
+                    if (previousTime !== undefined) {
+                        const fpsValue = 1000 / (performance.now() - previousTime);
+                        fps.textContent = `FPS: ${fpsValue.toFixed(1)} | ${currentDetections.length} objects`;
+                    }
+                    previousTime = performance.now();
+                    isProcessing = false;
+                })();
+            }
+
+            window.requestAnimationFrame(updateCanvas);
+        }
+
+        // Allow clicking video container to start camera
+        videoContainer.addEventListener('click', () => {
+            if (!isRunning) {
+                startBtn.click();
+            }
+        });
+
+        startBtn.addEventListener('click', async () => {
+            if (isRunning) {
+                stopCamera();
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                await video.play();
+
+                const videoTrack = stream.getVideoTracks()[0];
+                const { width, height } = videoTrack.getSettings();
+
+                setStreamSize(width * 0.5, height * 0.5);
+                if (processor) {
+                    processor.feature_extractor.size = { shortest_edge: size };
+                }
+
+                isRunning = true;
+                startBtn.textContent = 'Stop Camera';
+                autoBtn.disabled = false;
+                captureBtn.disabled = false;
+                videoContainer.classList.add('active');
+                clickToStart.style.display = 'none';
+
+                window.requestAnimationFrame(updateCanvas);
+            } catch (error) {
+                showStatus('Camera access denied: ' + error.message, 'error');
+            }
+        });
+
+        function stopCamera() {
+            if (isAutoCapture) {
+                stopAutoCapture();
+            }
+            isRunning = false;
+            video.srcObject?.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+            startBtn.textContent = 'Start Camera';
+            autoBtn.disabled = true;
+            captureBtn.disabled = true;
+            videoContainer.classList.remove('active');
+            clickToStart.style.display = 'block';
+            fps.textContent = 'Camera stopped';
+        }
+
+        autoBtn.addEventListener('click', () => {
+            if (isAutoCapture) {
+                stopAutoCapture();
+            } else {
+                startAutoCapture();
+            }
+        });
+
+        function startAutoCapture() {
+            const intervalSeconds = Number(intervalSelect.value);
+            isAutoCapture = true;
+            autoBtn.textContent = 'Stop Auto-Capture';
+            autoBtn.classList.add('recording');
+            recordingIndicator.classList.add('active');
+            intervalSelect.disabled = true;
+
+            // Capture immediately
+            captureSnapshot();
+
+            // Then at interval
+            autoCaptureInterval = setInterval(() => {
+                captureSnapshot();
+            }, intervalSeconds * 1000);
+
+            showStatus(`Auto-capture started (every ${intervalSeconds}s)`, 'success');
+        }
+
+        function stopAutoCapture() {
+            isAutoCapture = false;
+            autoBtn.textContent = 'Start Auto-Capture';
+            autoBtn.classList.remove('recording');
+            recordingIndicator.classList.remove('active');
+            intervalSelect.disabled = false;
+
+            if (autoCaptureInterval) {
+                clearInterval(autoCaptureInterval);
+                autoCaptureInterval = null;
+            }
+
+            showStatus('Auto-capture stopped', 'info');
+        }
+
+        captureBtn.addEventListener('click', () => {
+            captureSnapshot();
+        });
+
+        async function captureSnapshot() {
+            if (!isRunning) return;
+
+            try {
+                // Capture current frame
+                const captureCanvas = document.createElement('canvas');
+                captureCanvas.width = canvas.width;
+                captureCanvas.height = canvas.height;
+                const captureCtx = captureCanvas.getContext('2d');
+                captureCtx.drawImage(canvas, 0, 0);
+
+                const timestamp = new Date();
+                const detections = [...currentDetections];
+
+                // Draw bounding boxes onto the capture
+                const cw = captureCanvas.width;
+                const ch = captureCanvas.height;
+
+                detections.forEach((det, idx) => {
+                    // Convert normalized coords (0-1) to pixel coords
+                    const [nx1, ny1, nx2, ny2] = det.bbox;
+                    const xmin = nx1 * cw;
+                    const ymin = ny1 * ch;
+                    const xmax = nx2 * cw;
+                    const ymax = ny2 * ch;
+
+                    const color = COLOURS[idx % COLOURS.length];
+
+                    // Draw box
+                    captureCtx.strokeStyle = color;
+                    captureCtx.lineWidth = 2;
+                    captureCtx.strokeRect(xmin, ymin, xmax - xmin, ymax - ymin);
+
+                    // Draw label background
+                    const label = `${det.label} (${(det.score * 100).toFixed(0)}%)`;
+                    captureCtx.font = '12px sans-serif';
+                    const textWidth = captureCtx.measureText(label).width;
+                    captureCtx.fillStyle = color;
+                    captureCtx.fillRect(xmin - 1, ymin - 18, textWidth + 6, 18);
+
+                    // Draw label text
+                    captureCtx.fillStyle = 'white';
+                    captureCtx.fillText(label, xmin + 2, ymin - 5);
+                });
+
+                // Get pre-signed URL for snapshot
+                const presignResponse = await fetch(`${API_BASE}/api/presign-snapshot`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contentType: 'image/png' })
+                });
+
+                if (!presignResponse.ok) {
+                    throw new Error('Failed to get pre-signed URL');
+                }
+
+                const { uploadUrl, publicUrl, fileId } = await presignResponse.json();
+
+                // Convert canvas to blob and upload
+                const blob = await new Promise(resolve => captureCanvas.toBlob(resolve, 'image/png'));
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'image/png' },
+                    body: blob
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error('Failed to upload snapshot');
+                }
+
+                // Get pre-signed URL for detections
+                const detectionsPresignResponse = await fetch(`${API_BASE}/api/presign-detections`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileId })
+                });
+
+                if (!detectionsPresignResponse.ok) {
+                    throw new Error('Failed to get detections pre-signed URL');
+                }
+
+                const { uploadUrl: detectionsUploadUrl, publicUrl: detectionsPublicUrl } = await detectionsPresignResponse.json();
+
+                // Upload detection data
+                const detectionData = {
+                    timestamp: timestamp.toISOString(),
+                    snapshotUrl: publicUrl,
+                    threshold: threshold,
+                    imageSize: size,
+                    detections: detections,
+                    totalObjects: detections.length
+                };
+
+                await fetch(detectionsUploadUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(detectionData, null, 2)
+                });
+
+                // Add to feed
+                addToFeed({
+                    imageUrl: captureCanvas.toDataURL('image/png'),
+                    publicUrl,
+                    detectionsUrl: detectionsPublicUrl,
+                    timestamp,
+                    detections,
+                    detectionData
+                });
+
+                captureCount++;
+                feedStats.textContent = `${captureCount} captures`;
+
+                if (!isAutoCapture) {
+                    showStatus(`Captured! ${detections.length} objects detected`, 'success');
+                }
+
+            } catch (error) {
+                console.error('Capture error:', error);
+                showStatus('Capture failed: ' + error.message, 'error');
+            }
+        }
+
+        function addToFeed(item) {
+            feedEmpty.style.display = 'none';
+            feedItems.unshift(item);
+
+            // Limit feed to 50 items
+            if (feedItems.length > 50) {
+                feedItems.pop();
+                feedGrid.lastChild?.remove();
+            }
+
+            const feedItem = document.createElement('div');
+            feedItem.className = 'feed-item';
+            feedItem.onclick = () => openModal(item);
+
+            const img = document.createElement('img');
+            img.src = item.imageUrl;
+
+            const info = document.createElement('div');
+            info.className = 'feed-item-info';
+
+            const time = document.createElement('div');
+            time.className = 'feed-item-time';
+            time.textContent = item.timestamp.toLocaleTimeString();
+
+            const objects = document.createElement('div');
+            objects.className = 'feed-item-objects';
+            objects.textContent = `${item.detections.length} object${item.detections.length !== 1 ? 's' : ''}`;
+
+            const tags = document.createElement('div');
+            tags.className = 'feed-item-tags';
+
+            // Get unique labels
+            const uniqueLabels = [...new Set(item.detections.map(d => d.label))].slice(0, 3);
+            uniqueLabels.forEach(label => {
+                const tag = document.createElement('span');
+                tag.className = 'feed-item-tag';
+                tag.textContent = label;
+                tags.appendChild(tag);
+            });
+
+            if (item.detections.length > uniqueLabels.length) {
+                const more = document.createElement('span');
+                more.className = 'feed-item-tag';
+                more.textContent = `+${item.detections.length - uniqueLabels.length}`;
+                tags.appendChild(more);
+            }
+
+            info.appendChild(time);
+            info.appendChild(objects);
+            if (uniqueLabels.length > 0) {
+                info.appendChild(tags);
+            }
+
+            feedItem.appendChild(img);
+            feedItem.appendChild(info);
+
+            feedGrid.insertBefore(feedItem, feedGrid.firstChild);
+        }
+
+        // Modal functions
+        window.openModal = function(item) {
+            document.getElementById('modalImage').src = item.imageUrl;
+            document.getElementById('modalInfo').innerHTML = `
+                <p><strong>Time:</strong> ${item.timestamp.toLocaleString()}</p>
+                <p><strong>Objects Detected:</strong> ${item.detections.length}</p>
+                <p><strong>Labels:</strong> ${[...new Set(item.detections.map(d => d.label))].join(', ') || 'None'}</p>
+                <p style="margin-top: 15px;">
+                    <a href="${item.publicUrl}" target="_blank" style="color: #667eea;">View on B2</a> |
+                    <a href="${item.detectionsUrl}" target="_blank" style="color: #667eea;">Detection JSON</a>
+                </p>
+            `;
+            document.getElementById('modal').classList.add('show');
+        };
+
+        window.closeModal = function() {
+            document.getElementById('modal').classList.remove('show');
+        };
+
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>
