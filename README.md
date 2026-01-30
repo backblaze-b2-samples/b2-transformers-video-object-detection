@@ -1,4 +1,4 @@
-# B2 + Video Object Detection Monitor
+# B2 + Video Object Detection Monitor Example
 
 Real-time Video Object Detection monitoring demo using [Transformers.js](https://huggingface.co/docs/transformers.js) and [Backblaze B2](https://www.backblaze.com/cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=objectdetection) cloud storage.
 
