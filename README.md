@@ -1,28 +1,29 @@
-# B2 + Video Object Detection Monitor Example
+# Real-Time YOLOv9 Video Object Detection in the Browser with Transformers.js and Backblaze B2
 
-Real-time Video Object Detection monitoring demo using [Transformers.js](https://huggingface.co/docs/transformers.js) and [Backblaze B2](https://www.backblaze.com/cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=objectdetection) cloud storage.
+A JavaScript example app that runs [YOLOv9](https://github.com/WongKinYiu/yolov9) real-time object detection on live webcam video entirely in the browser using [Transformers.js](https://huggingface.co/docs/transformers.js) and WebAssembly — no server GPU required. Detected snapshots and bounding box metadata are automatically captured and stored in [Backblaze B2](https://www.backblaze.com/cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=objectdetection) cloud storage.
 
-Run [YOLOv9](https://github.com/WongKinYiu/yolov9) object detection entirely in your browser with auto-capture intervals - no server GPU needed. Snapshots and detection data are stored in cost-effective B2 storage.
+Detect people, vehicles, animals, and 80 COCO object classes from your webcam in real time. Configure auto-capture intervals (5 seconds to 5 minutes) to continuously monitor a scene and save annotated snapshots with detection metadata (labels, confidence scores, bounding boxes) to S3-compatible Backblaze B2 object storage.
 
 ## Use Cases
 
-- **Pet Watching** - Keep an eye on your pets while away
-- **Backyard Security** - Monitor outdoor areas for people, animals, vehicles
-- **Wildlife Camera** - Capture wildlife activity with automatic snapshots
+- **Pet monitoring** — Watch your pets while you're away with automatic capture
+- **Home and backyard security** — Detect people, vehicles, and animals in outdoor areas
+- **Wildlife camera** — Capture and log wildlife activity with configurable intervals
+- **Prototype and demo** — Build browser-based computer vision apps without provisioning GPU infrastructure
 
 ## Technologies
 
-- **[Transformers.js](https://huggingface.co/docs/transformers.js)** - Run AI models like YOLOv9 in the browser with WebAssembly
-- **[YOLOv9](https://github.com/WongKinYiu/yolov9)** - State-of-the-art real-time object detection model
-- **[Backblaze B2](https://www.backblaze.com/cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=objectdetection)** - S3-compatible cloud storage at $6/TB/month
+- **[Transformers.js](https://huggingface.co/docs/transformers.js)** — Run Hugging Face AI models like YOLOv9 in the browser with WebAssembly
+- **[YOLOv9](https://github.com/WongKinYiu/yolov9)** — State-of-the-art real-time object detection model (COCO-trained, 80 classes)
+- **[Backblaze B2](https://www.backblaze.com/cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=objectdetection)** — S3-compatible cloud object storage at $6/TB/month
 
 ## What This Demonstrates
 
-- **Client-side AI**: Run YOLOv9 entirely in browser (no server GPU required)
-- **Auto-Capture Monitoring**: Configurable capture intervals (5s to 5min)
-- **Live Detection Feed**: Animated grid showing captured snapshots with detected objects
-- **Cost-effective Storage**: Store snapshots and detection data in Backblaze B2
-- **Secure Uploads**: Direct browser-to-cloud uploads with pre-signed URLs
+- **Client-side object detection**: Run YOLOv9 entirely in the browser — no server GPU required
+- **Auto-capture monitoring**: Configurable intervals (5s to 5min) for continuous scene monitoring
+- **Live detection feed**: Real-time bounding box overlay with an animated grid of captured snapshots
+- **Cost-effective cloud storage**: Store snapshots and detection JSON in Backblaze B2
+- **Secure direct uploads**: Browser-to-cloud uploads using S3 pre-signed URLs
 
 ## Architecture
 
@@ -206,16 +207,20 @@ Response:
 
 ### Object Detection Model
 
-- **Model**: [Xenova/gelan-c_all](https://huggingface.co/Xenova/gelan-c_all) (YOLOv9-based)
-- **Library**: [Transformers.js](https://huggingface.co/docs/transformers.js) - Run transformers in the browser
-- **Size**: ~50MB download (cached in browser)
-- **Classes**: 80 COCO classes (person, car, dog, etc.)
+This example uses [Xenova/gelan-c_all](https://huggingface.co/Xenova/gelan-c_all), a YOLOv9-based object detection model quantized for browser inference via Transformers.js and WebAssembly. It detects 80 COCO object classes (person, car, dog, cat, bicycle, bird, etc.) with real-time bounding boxes and confidence scores.
+
+- **Model**: [Xenova/gelan-c_all](https://huggingface.co/Xenova/gelan-c_all) — YOLOv9-based, COCO-trained
+- **Library**: [Transformers.js](https://huggingface.co/docs/transformers.js) — Run Hugging Face transformer models in the browser
+- **Size**: ~50MB download (cached in browser after first load)
+- **Classes**: 80 COCO classes — person, car, dog, cat, truck, bicycle, bird, and more
+- **Output**: Bounding boxes, class labels, and confidence scores per frame
 
 ### Storage
 
 - **Provider**: [Backblaze B2](https://www.backblaze.com/cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=objectdetection)
 - **API**: S3-compatible API with pre-signed URLs
 - **Pricing**: $6/TB/month storage, uploads are FREE
+- **Stored data**: Annotated PNG snapshots + JSON detection metadata (labels, bounding boxes, confidence)
 
 ### Browser Compatibility
 
@@ -244,13 +249,14 @@ Requires WebAssembly, ES6 modules, and getUserMedia support.
 - [ ] Export feed history to CSV/JSON
 - [ ] Filter feed by detected object type
 
-## Learn More
+## Related Resources
 
-- **[Transformers.js Documentation](https://huggingface.co/docs/transformers.js)** - Run AI models in the browser
-- **[Transformers.js GitHub](https://github.com/huggingface/transformers.js)** - Source code and examples
-- **[Backblaze B2 Documentation](https://www.backblaze.com/docs/cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=objectdetection)** - Cloud storage API docs
-- **[B2 S3-Compatible API](https://www.backblaze.com/docs/cloud-storage-s3-compatible-api?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=objectdetection)** - S3 compatibility guide
-- **[YOLOv9 Paper](https://arxiv.org/abs/2402.13616)** - Original research paper
+- **[Transformers.js Documentation](https://huggingface.co/docs/transformers.js)** — Run Hugging Face AI models in the browser with WebAssembly
+- **[Transformers.js GitHub](https://github.com/huggingface/transformers.js)** — Source code and examples
+- **[YOLOv9 Paper](https://arxiv.org/abs/2402.13616)** — Original research: "YOLOv9: Learning What You Want to Learn Using Programmable Gradient Information"
+- **[COCO Dataset](https://cocodataset.org/)** — Common Objects in Context — the 80-class dataset YOLOv9 is trained on
+- **[Backblaze B2 Documentation](https://www.backblaze.com/docs/cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=objectdetection)** — Cloud storage API docs
+- **[B2 S3-Compatible API](https://www.backblaze.com/docs/cloud-storage-s3-compatible-api?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=objectdetection)** — Use standard S3 SDKs with Backblaze B2
 
 ## Troubleshooting
 
