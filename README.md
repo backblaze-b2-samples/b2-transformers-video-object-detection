@@ -4,6 +4,8 @@ A JavaScript example app that runs [YOLOv9](https://github.com/WongKinYiu/yolov9
 
 Detect people, vehicles, animals, and 80 COCO object classes from your webcam in real time. Configure auto-capture intervals (5 seconds to 5 minutes) to continuously monitor a scene and save annotated snapshots with detection metadata (labels, confidence scores, bounding boxes) to S3-compatible Backblaze B2 object storage.
 
+![App screenshot showing real-time object detection with bounding boxes on webcam feed](docs/screenshot.png)
+
 ## Use Cases
 
 - **Pet monitoring** — Watch your pets while you're away with automatic capture
