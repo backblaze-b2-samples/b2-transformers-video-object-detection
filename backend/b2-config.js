@@ -1,4 +1,5 @@
 import { S3Client } from '@aws-sdk/client-s3';
+import { writeSync } from 'node:fs';
 
 export const REQUIRED_B2_ENV_VARS = ['B2_ENDPOINT', 'B2_KEY_ID', 'B2_APP_KEY', 'B2_BUCKET'];
 
@@ -36,8 +37,10 @@ export function getRequiredB2ConfigOrExit(env = process.env) {
       throw error;
     }
 
-    console.error(error.message);
-    console.error('Copy backend/.env.example to backend/.env and fill in your B2 credentials.');
+    writeSync(
+      2,
+      `${error.message}\nCopy backend/.env.example to backend/.env and fill in your B2 credentials.\n`
+    );
     process.exit(1);
   }
 }
