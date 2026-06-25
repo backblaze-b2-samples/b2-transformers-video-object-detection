@@ -50,6 +50,7 @@ test('server exits with a clear error when B2_BUCKET is missing', () => {
     cwd: __dirname,
     encoding: 'utf8',
     env,
+    timeout: 5000,
   });
 
   assert.equal(result.status, 1);
