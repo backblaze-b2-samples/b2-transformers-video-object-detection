@@ -1,18 +1,15 @@
 import express from 'express';
 import cors from 'cors';
-import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createB2S3Client, getRequiredB2ConfigOrExit } from './b2-config.js';
 import { setupCORS } from './setup-cors.js';
+import { getB2Config, getPublicUrl } from './b2-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-dotenv.config();
 
 const app = express();
 app.use(cors());
@@ -21,11 +18,17 @@ app.use(express.json({ limit: '10mb' }));
 // Serve frontend files
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-const b2Config = getRequiredB2ConfigOrExit();
+let b2Config;
+try {
+  b2Config = getB2Config();
+} catch (error) {
+  console.error(error.message);
+  console.error('Copy .env.example to .env and fill in your B2 credentials.');
+  process.exit(1);
+}
 
-const s3Client = createB2S3Client(b2Config);
-
-const BUCKET = b2Config.bucket;
+const s3Client = new S3Client(b2Config.s3ClientConfig);
+const BUCKET = b2Config.bucketName;
 const URL_EXPIRY = 3600; // 1 hour
 const AUTO_SETUP_CORS = process.env.AUTO_SETUP_CORS !== 'false';
 
@@ -43,13 +46,7 @@ app.post('/api/presign-snapshot', async (req, res) => {
     });
 
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: URL_EXPIRY });
-
-    // Generate pre-signed GET URL for reading
-    const getCommand = new GetObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-    });
-    const publicUrl = await getSignedUrl(s3Client, getCommand, { expiresIn: URL_EXPIRY });
+    const publicUrl = getPublicUrl(b2Config.publicUrlBase, key);
 
     res.json({
       uploadUrl,
@@ -76,13 +73,7 @@ app.post('/api/presign-detections', async (req, res) => {
     });
 
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: URL_EXPIRY });
-
-    // Generate pre-signed GET URL for reading
-    const getCommand = new GetObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-    });
-    const publicUrl = await getSignedUrl(s3Client, getCommand, { expiresIn: URL_EXPIRY });
+    const publicUrl = getPublicUrl(b2Config.publicUrlBase, key);
 
     res.json({
       uploadUrl,

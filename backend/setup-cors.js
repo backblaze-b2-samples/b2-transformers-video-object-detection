@@ -1,8 +1,5 @@
-import { PutBucketCorsCommand, GetBucketCorsCommand } from '@aws-sdk/client-s3';
-import dotenv from 'dotenv';
-import { createB2S3Client, getRequiredB2ConfigOrExit } from './b2-config.js';
-
-dotenv.config();
+import { S3Client, PutBucketCorsCommand, GetBucketCorsCommand } from '@aws-sdk/client-s3';
+import { getB2Config } from './b2-config.js';
 
 const corsRules = {
   CORSRules: [
@@ -17,9 +14,23 @@ const corsRules = {
 };
 
 export async function setupCORS(silent = false) {
-  const b2Config = getRequiredB2ConfigOrExit();
-  const s3Client = createB2S3Client(b2Config);
-  const BUCKET = b2Config.bucket;
+  let b2Config;
+
+  try {
+    b2Config = getB2Config();
+  } catch (error) {
+    console.error(error.message);
+    console.error('Copy .env.example to .env and fill in your B2 credentials.');
+
+    if (silent) {
+      throw error;
+    }
+
+    process.exit(1);
+  }
+
+  const s3Client = new S3Client(b2Config.s3ClientConfig);
+  const BUCKET = b2Config.bucketName;
 
   try {
     if (!silent) {

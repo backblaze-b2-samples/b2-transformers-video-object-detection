@@ -82,11 +82,10 @@ B2_APPLICATION_KEY_ID=your_key_id_here
 B2_APPLICATION_KEY=your_application_key_here
 B2_BUCKET_NAME=your-bucket-name
 B2_REGION=us-west-002
-# Optional: base URL for publicly readable bucket files
-# B2_PUBLIC_URL_BASE=https://f000.backblazeb2.com/file/your-bucket-name
+B2_PUBLIC_URL_BASE=https://f005.backblazeb2.com/file/your-bucket-name
 ```
 
-> Get your B2 region from your bucket details page.
+> Get your B2 region from your bucket details page. Use the bucket's public URL base, or a custom domain, for `B2_PUBLIC_URL_BASE`.
 
 ### 3. Start the App
 

@@ -1,19 +1,16 @@
+import dotenv from 'dotenv';
 import { S3Client } from '@aws-sdk/client-s3';
 import { writeSync } from 'node:fs';
 
-export const B2_USER_AGENT = 'b2ai-transformersjs (backblaze-b2-samples)';
+dotenv.config();
+
+export const B2_USER_AGENT = 'b2ai-b2-transformers-video-object-detection (backblaze-b2-samples)';
 export const REQUIRED_B2_ENV_VARS = [
   'B2_APPLICATION_KEY_ID',
   'B2_APPLICATION_KEY',
   'B2_BUCKET_NAME',
   'B2_REGION',
 ];
-
-const DEPRECATED_B2_ENV_FALLBACKS = {
-  B2_APPLICATION_KEY_ID: 'B2_KEY_ID',
-  B2_APPLICATION_KEY: 'B2_APP_KEY',
-  B2_BUCKET_NAME: 'B2_BUCKET',
-};
 
 export class B2ConfigError extends Error {
   constructor(missing) {
@@ -29,45 +26,57 @@ function getEnvValue(env, name) {
   return env[name]?.trim() || '';
 }
 
-function getEnvValueWithDeprecatedFallback(env, name) {
-  return getEnvValue(env, name) || getEnvValue(env, DEPRECATED_B2_ENV_FALLBACKS[name]);
-}
-
-function getRegionFromDeprecatedEndpoint(env) {
-  const endpoint = getEnvValue(env, 'B2_ENDPOINT');
-  const match = endpoint.match(/^https?:\/\/s3\.([a-z0-9-]+)\.backblazeb2\.com\/?$/i);
-
-  return match?.[1] || '';
-}
-
 function getB2Endpoint(region) {
   return `https://s3.${region}.backblazeb2.com`;
 }
 
-export function getRequiredB2Config(env = process.env) {
-  const keyId = getEnvValueWithDeprecatedFallback(env, 'B2_APPLICATION_KEY_ID');
-  const appKey = getEnvValueWithDeprecatedFallback(env, 'B2_APPLICATION_KEY');
-  const bucket = getEnvValueWithDeprecatedFallback(env, 'B2_BUCKET_NAME');
-  const region = getEnvValue(env, 'B2_REGION') || getRegionFromDeprecatedEndpoint(env);
-  const publicUrlBase = getEnvValue(env, 'B2_PUBLIC_URL_BASE');
-  const missing = [
-    keyId ? null : 'B2_APPLICATION_KEY_ID',
-    appKey ? null : 'B2_APPLICATION_KEY',
-    bucket ? null : 'B2_BUCKET_NAME',
+export function resolveB2Config(env = process.env) {
+  const applicationKeyId = getEnvValue(env, 'B2_APPLICATION_KEY_ID');
+  const applicationKey = getEnvValue(env, 'B2_APPLICATION_KEY');
+  const bucketName = getEnvValue(env, 'B2_BUCKET_NAME');
+  const region = getEnvValue(env, 'B2_REGION');
+  const publicUrlBase = getEnvValue(env, 'B2_PUBLIC_URL_BASE').replace(/\/+$/, '');
+  const missingEnvVars = [
+    applicationKeyId ? null : 'B2_APPLICATION_KEY_ID',
+    applicationKey ? null : 'B2_APPLICATION_KEY',
+    bucketName ? null : 'B2_BUCKET_NAME',
     region ? null : 'B2_REGION',
   ].filter(Boolean);
 
-  if (missing.length > 0) {
-    throw new B2ConfigError(missing);
+  if (missingEnvVars.length > 0) {
+    throw new B2ConfigError(missingEnvVars);
   }
 
   return {
-    endpoint: getB2Endpoint(region),
-    region,
-    keyId,
-    appKey,
-    bucket,
+    bucketName,
     ...(publicUrlBase ? { publicUrlBase } : {}),
+    s3ClientConfig: {
+      endpoint: getB2Endpoint(region),
+      region,
+      credentials: {
+        accessKeyId: applicationKeyId,
+        secretAccessKey: applicationKey,
+      },
+      forcePathStyle: true,
+      customUserAgent: B2_USER_AGENT,
+    },
+  };
+}
+
+export function getB2Config() {
+  return resolveB2Config();
+}
+
+export function getRequiredB2Config(env = process.env) {
+  const config = resolveB2Config(env);
+
+  return {
+    endpoint: config.s3ClientConfig.endpoint,
+    region: config.s3ClientConfig.region,
+    keyId: config.s3ClientConfig.credentials.accessKeyId,
+    appKey: config.s3ClientConfig.credentials.secretAccessKey,
+    bucket: config.bucketName,
+    ...(config.publicUrlBase ? { publicUrlBase: config.publicUrlBase } : {}),
   };
 }
 
@@ -87,7 +96,14 @@ export function getRequiredB2ConfigOrExit(env = process.env) {
   }
 }
 
-export function createB2S3Client(config, options = {}) {
+export function createB2S3Client(config = getB2Config(), options = {}) {
+  if (config.s3ClientConfig) {
+    return new S3Client({
+      ...config.s3ClientConfig,
+      ...options,
+    });
+  }
+
   return new S3Client({
     endpoint: config.endpoint,
     region: config.region,
@@ -99,4 +115,8 @@ export function createB2S3Client(config, options = {}) {
     forcePathStyle: true,
     ...options,
   });
+}
+
+export function getPublicUrl(publicUrlBase, key) {
+  return `${publicUrlBase}/${key}`;
 }
