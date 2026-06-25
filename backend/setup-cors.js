@@ -102,10 +102,10 @@ export async function setupCORS(silent = false) {
       console.error('\nTo fix:');
       console.error('1. Go to https://secure.backblaze.com/app_keys.htm');
       console.error('2. Create a new application key with all permissions above');
-      console.error('3. Update B2_KEY_ID and B2_APP_KEY in your .env file');
+      console.error('3. Update B2_APPLICATION_KEY_ID and B2_APPLICATION_KEY in your .env file');
     } else if (error.name === 'NoSuchBucket') {
       console.error(`\nBucket "${BUCKET}" not found!`);
-      console.error('Check that B2_BUCKET in .env matches your bucket name.');
+      console.error('Check that B2_BUCKET_NAME in .env matches your bucket name.');
     } else {
       console.error('\nFull error:', error);
     }

@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { getRequiredB2Config, B2ConfigError } from '../b2-config.js';
+import { B2_USER_AGENT, getRequiredB2Config, B2ConfigError } from '../b2-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverPath = path.join(__dirname, '..', 'server.js');
@@ -24,12 +24,13 @@ function buildServerTestEnv(overrides, ambientEnv = process.env) {
   };
 }
 
-test('getRequiredB2Config trims values and defaults region', () => {
+test('getRequiredB2Config reads standard env names and derives endpoint', () => {
   const config = getRequiredB2Config({
-    B2_ENDPOINT: ' https://s3.us-west-002.backblazeb2.com ',
-    B2_KEY_ID: ' test-key-id ',
-    B2_APP_KEY: ' test-app-key ',
-    B2_BUCKET: ' test-bucket ',
+    B2_APPLICATION_KEY_ID: ' test-key-id ',
+    B2_APPLICATION_KEY: ' test-app-key ',
+    B2_BUCKET_NAME: ' test-bucket ',
+    B2_REGION: ' us-west-002 ',
+    B2_PUBLIC_URL_BASE: ' https://f000.backblazeb2.com/file/test-bucket ',
   });
 
   assert.deepEqual(config, {
@@ -38,31 +39,53 @@ test('getRequiredB2Config trims values and defaults region', () => {
     keyId: 'test-key-id',
     appKey: 'test-app-key',
     bucket: 'test-bucket',
+    publicUrlBase: 'https://f000.backblazeb2.com/file/test-bucket',
+  });
+});
+
+test('getRequiredB2Config supports deprecated env names as fallbacks', () => {
+  const config = getRequiredB2Config({
+    B2_ENDPOINT: ' https://s3.us-east-005.backblazeb2.com ',
+    B2_KEY_ID: ' legacy-key-id ',
+    B2_APP_KEY: ' legacy-app-key ',
+    B2_BUCKET: ' legacy-bucket ',
+  });
+
+  assert.deepEqual(config, {
+    endpoint: 'https://s3.us-east-005.backblazeb2.com',
+    region: 'us-east-005',
+    keyId: 'legacy-key-id',
+    appKey: 'legacy-app-key',
+    bucket: 'legacy-bucket',
   });
 });
 
 test('getRequiredB2Config reports missing required B2 values', () => {
   assert.throws(
     () => getRequiredB2Config({
-      B2_ENDPOINT: 'https://s3.us-west-002.backblazeb2.com',
-      B2_KEY_ID: 'test-key-id',
-      B2_APP_KEY: 'test-app-key',
+      B2_APPLICATION_KEY_ID: 'test-key-id',
+      B2_APPLICATION_KEY: 'test-app-key',
+      B2_REGION: 'us-west-002',
     }),
-    (error) => error instanceof B2ConfigError && error.missing.includes('B2_BUCKET')
+    (error) => error instanceof B2ConfigError && error.missing.includes('B2_BUCKET_NAME')
   );
+});
+
+test('B2 user agent includes the required samples marker', () => {
+  assert.equal(B2_USER_AGENT, 'b2ai-transformersjs (backblaze-b2-samples)');
 });
 
 test('buildServerTestEnv excludes ambient secrets', () => {
   const env = buildServerTestEnv(
     {
       AUTO_SETUP_CORS: 'false',
-      B2_ENDPOINT: 'https://s3.us-west-002.backblazeb2.com',
-      B2_KEY_ID: 'test-key-id',
-      B2_APP_KEY: 'test-app-key',
+      B2_APPLICATION_KEY_ID: 'test-key-id',
+      B2_APPLICATION_KEY: 'test-app-key',
+      B2_REGION: 'us-west-002',
     },
     {
       PATH: '/usr/bin',
-      B2_BUCKET: 'ambient-bucket',
+      B2_BUCKET_NAME: 'ambient-bucket',
       GITHUB_TOKEN: 'ambient-github-token',
       NPM_TOKEN: 'ambient-npm-token',
       AWS_SECRET_ACCESS_KEY: 'ambient-aws-secret',
@@ -70,18 +93,18 @@ test('buildServerTestEnv excludes ambient secrets', () => {
   );
 
   assert.equal(env.PATH, '/usr/bin');
-  assert.equal(env.B2_BUCKET, undefined);
+  assert.equal(env.B2_BUCKET_NAME, undefined);
   assert.equal(env.GITHUB_TOKEN, undefined);
   assert.equal(env.NPM_TOKEN, undefined);
   assert.equal(env.AWS_SECRET_ACCESS_KEY, undefined);
 });
 
-test('server exits with a clear error when B2_BUCKET is missing', () => {
+test('server exits with a clear error when B2_BUCKET_NAME is missing', () => {
   const env = buildServerTestEnv({
     AUTO_SETUP_CORS: 'false',
-    B2_ENDPOINT: 'https://s3.us-west-002.backblazeb2.com',
-    B2_KEY_ID: 'test-key-id',
-    B2_APP_KEY: 'test-app-key',
+    B2_APPLICATION_KEY_ID: 'test-key-id',
+    B2_APPLICATION_KEY: 'test-app-key',
+    B2_REGION: 'us-west-002',
   });
 
   const result = spawnSync(process.execPath, [serverPath], {
@@ -92,6 +115,6 @@ test('server exits with a clear error when B2_BUCKET is missing', () => {
   });
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Missing required Backblaze B2 environment variable: B2_BUCKET/);
+  assert.match(result.stderr, /Missing required Backblaze B2 environment variable: B2_BUCKET_NAME/);
   assert.match(result.stderr, /backend\/\.env\.example/);
 });

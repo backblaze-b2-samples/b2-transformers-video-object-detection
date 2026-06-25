@@ -23,9 +23,7 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 
 const b2Config = getRequiredB2ConfigOrExit();
 
-const s3Client = createB2S3Client(b2Config, {
-  customUserAgent: 'b2ai-transformersjs',
-});
+const s3Client = createB2S3Client(b2Config);
 
 const BUCKET = b2Config.bucket;
 const URL_EXPIRY = 3600; // 1 hour
