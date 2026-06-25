@@ -85,7 +85,7 @@ B2_REGION=us-west-002
 B2_PUBLIC_URL_BASE=https://f005.backblazeb2.com/file/your-bucket-name
 ```
 
-> Get your B2 region from your bucket details page. Use the bucket's public URL base, or a custom domain, for `B2_PUBLIC_URL_BASE`.
+> Get your B2 region from your bucket details page. Set `B2_PUBLIC_URL_BASE` to the bucket's public URL base, or a custom domain, for compatibility with Backblaze B2 sample standards; the app returns expiring pre-signed read URLs by default.
 
 ### 3. Start the App
 
@@ -187,6 +187,8 @@ Response:
 }
 ```
 
+`publicUrl` is an expiring pre-signed read URL.
+
 ### POST /api/presign-detections
 
 Request:
@@ -204,6 +206,8 @@ Response:
   "key": "detections/uuid.json"
 }
 ```
+
+`publicUrl` is an expiring pre-signed read URL.
 
 ## Technical Details
 

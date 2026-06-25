@@ -35,7 +35,6 @@ export function resolveB2Config(env = process.env) {
   const applicationKey = getEnvValue(env, 'B2_APPLICATION_KEY');
   const bucketName = getEnvValue(env, 'B2_BUCKET_NAME');
   const region = getEnvValue(env, 'B2_REGION');
-  const publicUrlBase = getEnvValue(env, 'B2_PUBLIC_URL_BASE').replace(/\/+$/, '');
   const missingEnvVars = [
     applicationKeyId ? null : 'B2_APPLICATION_KEY_ID',
     applicationKey ? null : 'B2_APPLICATION_KEY',
@@ -49,7 +48,6 @@ export function resolveB2Config(env = process.env) {
 
   return {
     bucketName,
-    ...(publicUrlBase ? { publicUrlBase } : {}),
     s3ClientConfig: {
       endpoint: getB2Endpoint(region),
       region,
@@ -76,7 +74,6 @@ export function getRequiredB2Config(env = process.env) {
     keyId: config.s3ClientConfig.credentials.accessKeyId,
     appKey: config.s3ClientConfig.credentials.secretAccessKey,
     bucket: config.bucketName,
-    ...(config.publicUrlBase ? { publicUrlBase: config.publicUrlBase } : {}),
   };
 }
 
@@ -115,8 +112,4 @@ export function createB2S3Client(config = getB2Config(), options = {}) {
     forcePathStyle: true,
     ...options,
   });
-}
-
-export function getPublicUrl(publicUrlBase, key) {
-  return `${publicUrlBase}/${key}`;
 }

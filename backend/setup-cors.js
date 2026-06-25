@@ -1,5 +1,5 @@
-import { S3Client, PutBucketCorsCommand, GetBucketCorsCommand } from '@aws-sdk/client-s3';
-import { getB2Config } from './b2-config.js';
+import { PutBucketCorsCommand, GetBucketCorsCommand } from '@aws-sdk/client-s3';
+import { createB2S3Client, getB2Config } from './b2-config.js';
 
 const corsRules = {
   CORSRules: [
@@ -29,7 +29,7 @@ export async function setupCORS(silent = false) {
     process.exit(1);
   }
 
-  const s3Client = new S3Client(b2Config.s3ClientConfig);
+  const s3Client = createB2S3Client(b2Config);
   const BUCKET = b2Config.bucketName;
 
   try {

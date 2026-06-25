@@ -1,12 +1,13 @@
 import express from 'express';
 import cors from 'cors';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { setupCORS } from './setup-cors.js';
-import { getB2Config, getPublicUrl } from './b2-config.js';
+import { createB2S3Client, getB2Config } from './b2-config.js';
+import { getPresignedReadUrl } from './storage-urls.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,7 +28,7 @@ try {
   process.exit(1);
 }
 
-const s3Client = new S3Client(b2Config.s3ClientConfig);
+const s3Client = createB2S3Client(b2Config);
 const BUCKET = b2Config.bucketName;
 const URL_EXPIRY = 3600; // 1 hour
 const AUTO_SETUP_CORS = process.env.AUTO_SETUP_CORS !== 'false';
@@ -46,11 +47,16 @@ app.post('/api/presign-snapshot', async (req, res) => {
     });
 
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: URL_EXPIRY });
-    const publicUrl = getPublicUrl(b2Config.publicUrlBase, key);
+    const readUrl = await getPresignedReadUrl({
+      s3Client,
+      bucket: BUCKET,
+      key,
+      expiresIn: URL_EXPIRY,
+    });
 
     res.json({
       uploadUrl,
-      publicUrl,
+      publicUrl: readUrl,
       key,
       fileId
     });
@@ -73,11 +79,16 @@ app.post('/api/presign-detections', async (req, res) => {
     });
 
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: URL_EXPIRY });
-    const publicUrl = getPublicUrl(b2Config.publicUrlBase, key);
+    const readUrl = await getPresignedReadUrl({
+      s3Client,
+      bucket: BUCKET,
+      key,
+      expiresIn: URL_EXPIRY,
+    });
 
     res.json({
       uploadUrl,
-      publicUrl,
+      publicUrl: readUrl,
       key
     });
   } catch (error) {
