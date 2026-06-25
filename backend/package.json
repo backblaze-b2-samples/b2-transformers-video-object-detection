@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "setup-cors": "node setup-cors.js"
+    "setup-cors": "node setup-cors.js",
+    "test": "node --test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.682.0",
