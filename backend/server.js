@@ -1,11 +1,12 @@
 import express from 'express';
 import cors from 'cors';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createB2S3Client, getRequiredB2ConfigOrExit } from './b2-config.js';
 import { setupCORS } from './setup-cors.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,38 +21,9 @@ app.use(express.json({ limit: '10mb' }));
 // Serve frontend files
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-const REQUIRED_B2_ENV_VARS = ['B2_ENDPOINT', 'B2_KEY_ID', 'B2_APP_KEY', 'B2_BUCKET'];
+const b2Config = getRequiredB2ConfigOrExit();
 
-function readRequiredB2Config() {
-  const missing = REQUIRED_B2_ENV_VARS.filter((name) => !process.env[name]?.trim());
-
-  if (missing.length > 0) {
-    console.error(
-      `Missing required Backblaze B2 environment variable${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}`
-    );
-    console.error('Copy backend/.env.example to backend/.env and fill in your B2 credentials.');
-    process.exit(1);
-  }
-
-  return {
-    endpoint: process.env.B2_ENDPOINT.trim(),
-    region: process.env.B2_REGION?.trim() || 'us-west-002',
-    keyId: process.env.B2_KEY_ID.trim(),
-    appKey: process.env.B2_APP_KEY.trim(),
-    bucket: process.env.B2_BUCKET.trim(),
-  };
-}
-
-const b2Config = readRequiredB2Config();
-
-const s3Client = new S3Client({
-  endpoint: b2Config.endpoint,
-  region: b2Config.region,
-  credentials: {
-    accessKeyId: b2Config.keyId,
-    secretAccessKey: b2Config.appKey,
-  },
-  forcePathStyle: true,
+const s3Client = createB2S3Client(b2Config, {
   customUserAgent: "b2ai-transformersjs",
 });
 
