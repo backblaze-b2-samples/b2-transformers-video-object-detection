@@ -24,7 +24,7 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 const b2Config = getRequiredB2ConfigOrExit();
 
 const s3Client = createB2S3Client(b2Config, {
-  customUserAgent: "b2ai-transformersjs",
+  customUserAgent: 'b2ai-transformersjs',
 });
 
 const BUCKET = b2Config.bucket;

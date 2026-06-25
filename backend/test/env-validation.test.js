@@ -8,7 +8,7 @@ import { getRequiredB2Config, B2ConfigError } from '../b2-config.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverPath = path.join(__dirname, '..', 'server.js');
 
-test('getRequiredB2Config normalizes shared B2 environment config', () => {
+test('getRequiredB2Config trims values and defaults region', () => {
   const config = getRequiredB2Config({
     B2_ENDPOINT: ' https://s3.us-west-002.backblazeb2.com ',
     B2_KEY_ID: ' test-key-id ',
