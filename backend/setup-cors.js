@@ -1,5 +1,6 @@
-import { S3Client, PutBucketCorsCommand, GetBucketCorsCommand } from '@aws-sdk/client-s3';
+import { PutBucketCorsCommand, GetBucketCorsCommand } from '@aws-sdk/client-s3';
 import dotenv from 'dotenv';
+import { createB2S3Client, getRequiredB2ConfigOrExit } from './b2-config.js';
 
 dotenv.config();
 
@@ -16,25 +17,9 @@ const corsRules = {
 };
 
 export async function setupCORS(silent = false) {
-  // Validate environment variables
-  if (!process.env.B2_ENDPOINT || !process.env.B2_KEY_ID || !process.env.B2_APP_KEY || !process.env.B2_BUCKET) {
-    console.error('Missing required environment variables!');
-    console.error('Please set: B2_ENDPOINT, B2_KEY_ID, B2_APP_KEY, B2_BUCKET');
-    console.error('Copy .env.example to .env and fill in your B2 credentials.');
-    process.exit(1);
-  }
-
-  const s3Client = new S3Client({
-    endpoint: process.env.B2_ENDPOINT,
-    region: process.env.B2_REGION || 'us-west-002',
-    credentials: {
-      accessKeyId: process.env.B2_KEY_ID,
-      secretAccessKey: process.env.B2_APP_KEY,
-    },
-    forcePathStyle: true,
-  });
-
-  const BUCKET = process.env.B2_BUCKET;
+  const b2Config = getRequiredB2ConfigOrExit();
+  const s3Client = createB2S3Client(b2Config);
+  const BUCKET = b2Config.bucket;
 
   try {
     if (!silent) {
@@ -117,10 +102,10 @@ export async function setupCORS(silent = false) {
       console.error('\nTo fix:');
       console.error('1. Go to https://secure.backblaze.com/app_keys.htm');
       console.error('2. Create a new application key with all permissions above');
-      console.error('3. Update B2_KEY_ID and B2_APP_KEY in your .env file');
+      console.error('3. Update B2_APPLICATION_KEY_ID and B2_APPLICATION_KEY in your .env file');
     } else if (error.name === 'NoSuchBucket') {
       console.error(`\nBucket "${BUCKET}" not found!`);
-      console.error('Check that B2_BUCKET in .env matches your bucket name.');
+      console.error('Check that B2_BUCKET_NAME in .env matches your bucket name.');
     } else {
       console.error('\nFull error:', error);
     }

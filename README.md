@@ -78,14 +78,15 @@ cp .env.example .env
 Edit `.env` with your B2 credentials:
 
 ```env
-B2_ENDPOINT=https://s3.us-west-002.backblazeb2.com
+B2_APPLICATION_KEY_ID=your_key_id_here
+B2_APPLICATION_KEY=your_application_key_here
+B2_BUCKET_NAME=your-bucket-name
 B2_REGION=us-west-002
-B2_KEY_ID=your_key_id_here
-B2_APP_KEY=your_app_key_here
-B2_BUCKET=your-bucket-name
+# Optional: base URL for publicly readable bucket files
+# B2_PUBLIC_URL_BASE=https://f000.backblazeb2.com/file/your-bucket-name
 ```
 
-> Get your B2 endpoint and region from your bucket details page
+> Get your B2 region from your bucket details page.
 
 ### 3. Start the App
 

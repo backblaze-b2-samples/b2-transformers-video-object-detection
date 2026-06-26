@@ -1,11 +1,12 @@
 import express from 'express';
 import cors from 'cors';
-import { S3Client, PutObjectCommand, GetObjectCommand, GetBucketCorsCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createB2S3Client, getRequiredB2ConfigOrExit } from './b2-config.js';
 import { setupCORS } from './setup-cors.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,18 +21,11 @@ app.use(express.json({ limit: '10mb' }));
 // Serve frontend files
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-const s3Client = new S3Client({
-  endpoint: process.env.B2_ENDPOINT,
-  region: process.env.B2_REGION || 'us-west-002',
-  credentials: {
-    accessKeyId: process.env.B2_KEY_ID,
-    secretAccessKey: process.env.B2_APP_KEY,
-  },
-  forcePathStyle: true,
-  customUserAgent: "b2ai-transformersjs",
-});
+const b2Config = getRequiredB2ConfigOrExit();
 
-const BUCKET = process.env.B2_BUCKET;
+const s3Client = createB2S3Client(b2Config);
+
+const BUCKET = b2Config.bucket;
 const URL_EXPIRY = 3600; // 1 hour
 const AUTO_SETUP_CORS = process.env.AUTO_SETUP_CORS !== 'false';
 
