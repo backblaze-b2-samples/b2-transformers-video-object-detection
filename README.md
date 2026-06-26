@@ -170,14 +170,14 @@ docker-compose up -d
 
 ### POST /api/session
 
-Creates a short-lived upload signing session. Send the returned `token` in the `X-B2-Sample-Session` header for signing requests.
+Creates a short-lived upload signing session. Send the returned `token` in the `x-b2-sample-session` header for signing requests.
 
 Response:
 ```json
 {
   "token": "uuid",
   "header": "x-b2-sample-session",
-  "expiresAt": "2026-06-25T00:00:00.000Z",
+  "expiresAt": "<dynamic ISO timestamp>",
   "maxSnapshotBytes": 5242880,
   "maxDetectionsBytes": 262144
 }
@@ -185,7 +185,7 @@ Response:
 
 ### POST /api/presign-snapshot
 
-Requires `X-B2-Sample-Session`. Only `image/png` snapshots within `maxSnapshotBytes` are signed.
+Requires `x-b2-sample-session`. Only `image/png` snapshots within `maxSnapshotBytes` are signed.
 
 Request:
 ```json
@@ -209,7 +209,7 @@ Response:
 
 ### POST /api/presign-detections
 
-Requires `X-B2-Sample-Session`. The `fileId` must come from a snapshot signed for the same session and can be used once.
+Requires `x-b2-sample-session`. The `fileId` must come from a snapshot signed for the same session and can be used once.
 
 Request:
 ```json

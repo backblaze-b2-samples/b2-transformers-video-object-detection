@@ -655,6 +655,22 @@
             };
         }
 
+        async function postSigningRequest(path, body) {
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const response = await fetch(`${API_BASE}${path}`, {
+                    method: 'POST',
+                    headers: await getSigningHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify(body)
+                });
+
+                if (response.status !== 401 || attempt === 1) {
+                    return response;
+                }
+
+                signingSession = null;
+            }
+        }
+
         function setStreamSize(width, height) {
             video.width = canvas.width = Math.round(width);
             video.height = canvas.height = Math.round(height);
@@ -926,13 +942,9 @@
                 }
 
                 // Get pre-signed URL for snapshot
-                const presignResponse = await fetch(`${API_BASE}/api/presign-snapshot`, {
-                    method: 'POST',
-                    headers: await getSigningHeaders({ 'Content-Type': 'application/json' }),
-                    body: JSON.stringify({
-                        contentLength: blob.size,
-                        contentType: 'image/png'
-                    })
+                const presignResponse = await postSigningRequest('/api/presign-snapshot', {
+                    contentLength: blob.size,
+                    contentType: 'image/png'
                 });
 
                 if (!presignResponse.ok) {
@@ -963,13 +975,9 @@
                 const detectionBlob = new Blob([detectionBody], { type: 'application/json' });
 
                 // Get pre-signed URL for detections
-                const detectionsPresignResponse = await fetch(`${API_BASE}/api/presign-detections`, {
-                    method: 'POST',
-                    headers: await getSigningHeaders({ 'Content-Type': 'application/json' }),
-                    body: JSON.stringify({
-                        contentLength: detectionBlob.size,
-                        fileId
-                    })
+                const detectionsPresignResponse = await postSigningRequest('/api/presign-detections', {
+                    contentLength: detectionBlob.size,
+                    fileId
                 });
 
                 if (!detectionsPresignResponse.ok) {
