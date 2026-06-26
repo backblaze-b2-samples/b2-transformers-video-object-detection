@@ -616,6 +616,7 @@
         let currentDetections = [];
         let captureCount = 0;
         let feedItems = [];
+        let signingSession = null;
 
         function showStatus(message, type = 'info') {
             status.textContent = message;
@@ -624,6 +625,34 @@
 
         function hideStatus() {
             status.className = 'status-message';
+        }
+
+        async function getSigningSession() {
+            if (signingSession && signingSession.expiresAtMs - Date.now() > 60000) {
+                return signingSession;
+            }
+
+            const response = await fetch(`${API_BASE}/api/session`, { method: 'POST' });
+            if (!response.ok) {
+                throw new Error('Failed to create upload session');
+            }
+
+            const session = await response.json();
+            signingSession = {
+                expiresAtMs: Date.parse(session.expiresAt),
+                header: session.header,
+                token: session.token,
+            };
+
+            return signingSession;
+        }
+
+        async function getSigningHeaders(headers = {}) {
+            const session = await getSigningSession();
+            return {
+                ...headers,
+                [session.header]: session.token,
+            };
         }
 
         function setStreamSize(width, height) {
@@ -890,11 +919,20 @@
                     captureCtx.fillText(label, xmin + 2, ymin - 5);
                 });
 
+                // Convert canvas to blob before signing so the server can bind the upload size
+                const blob = await new Promise(resolve => captureCanvas.toBlob(resolve, 'image/png'));
+                if (!blob) {
+                    throw new Error('Failed to create snapshot image');
+                }
+
                 // Get pre-signed URL for snapshot
                 const presignResponse = await fetch(`${API_BASE}/api/presign-snapshot`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contentType: 'image/png' })
+                    headers: await getSigningHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({
+                        contentLength: blob.size,
+                        contentType: 'image/png'
+                    })
                 });
 
                 if (!presignResponse.ok) {
@@ -903,8 +941,6 @@
 
                 const { uploadUrl, publicUrl, fileId } = await presignResponse.json();
 
-                // Convert canvas to blob and upload
-                const blob = await new Promise(resolve => captureCanvas.toBlob(resolve, 'image/png'));
                 const uploadResponse = await fetch(uploadUrl, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'image/png' },
@@ -915,20 +951,6 @@
                     throw new Error('Failed to upload snapshot');
                 }
 
-                // Get pre-signed URL for detections
-                const detectionsPresignResponse = await fetch(`${API_BASE}/api/presign-detections`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fileId })
-                });
-
-                if (!detectionsPresignResponse.ok) {
-                    throw new Error('Failed to get detections pre-signed URL');
-                }
-
-                const { uploadUrl: detectionsUploadUrl, publicUrl: detectionsPublicUrl } = await detectionsPresignResponse.json();
-
-                // Upload detection data
                 const detectionData = {
                     timestamp: timestamp.toISOString(),
                     snapshotUrl: publicUrl,
@@ -937,11 +959,29 @@
                     detections: detections,
                     totalObjects: detections.length
                 };
+                const detectionBody = JSON.stringify(detectionData, null, 2);
+                const detectionBlob = new Blob([detectionBody], { type: 'application/json' });
+
+                // Get pre-signed URL for detections
+                const detectionsPresignResponse = await fetch(`${API_BASE}/api/presign-detections`, {
+                    method: 'POST',
+                    headers: await getSigningHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({
+                        contentLength: detectionBlob.size,
+                        fileId
+                    })
+                });
+
+                if (!detectionsPresignResponse.ok) {
+                    throw new Error('Failed to get detections pre-signed URL');
+                }
+
+                const { uploadUrl: detectionsUploadUrl, publicUrl: detectionsPublicUrl } = await detectionsPresignResponse.json();
 
                 await fetch(detectionsUploadUrl, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(detectionData, null, 2)
+                    body: detectionBlob
                 });
 
                 // Add to feed

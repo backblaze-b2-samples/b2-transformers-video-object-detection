@@ -44,5 +44,17 @@ test('shared B2 S3 config owns the Backblaze samples user agent', () => {
   });
 
   assert.equal(config.s3ClientConfig.customUserAgent, B2_USER_AGENT);
-  assert.match(config.s3ClientConfig.customUserAgent, /\(backblaze-b2-samples\)/);
+  assert.equal(config.s3ClientConfig.customUserAgent, 'b2ai-b2-transformers-video-object-detection');
+});
+
+test('public URL base is not part of runtime config when reads are presigned', () => {
+  const config = resolveB2Config({
+    B2_APPLICATION_KEY_ID: 'key-id',
+    B2_APPLICATION_KEY: 'application-key',
+    B2_BUCKET_NAME: 'bucket',
+    B2_REGION: 'eu-central-003',
+    B2_PUBLIC_URL_BASE: 'https://example.com/file/bucket',
+  });
+
+  assert.equal('publicUrlBase' in config, false);
 });
