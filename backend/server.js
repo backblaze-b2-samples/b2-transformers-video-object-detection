@@ -183,11 +183,21 @@ export function createApp({
 }
 
 export async function startServer({
-  app = createApp(),
+  app,
   autoSetupCors = process.env.AUTO_SETUP_CORS !== 'false',
   port = process.env.PORT || 3000,
   setupCors = setupCORS,
 } = {}) {
+  let serverApp;
+
+  try {
+    serverApp = app || createApp();
+  } catch (error) {
+    console.error(error.message);
+    console.error('Copy backend/.env.example to backend/.env and fill in your B2 credentials.');
+    process.exit(1);
+  }
+
   if (autoSetupCors) {
     console.log('Checking B2 CORS configuration...');
     try {
@@ -214,7 +224,7 @@ export async function startServer({
     }
   }
 
-  app.listen(port, () => {
+  serverApp.listen(port, () => {
     console.log(`\nServer running!`);
     console.log(`\n   Open: http://localhost:${port}`);
     console.log(`   API:  http://localhost:${port}/api`);
