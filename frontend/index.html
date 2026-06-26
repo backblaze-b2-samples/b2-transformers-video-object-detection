@@ -978,11 +978,15 @@
 
                 const { uploadUrl: detectionsUploadUrl, publicUrl: detectionsPublicUrl } = await detectionsPresignResponse.json();
 
-                await fetch(detectionsUploadUrl, {
+                const detectionsUploadResponse = await fetch(detectionsUploadUrl, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: detectionBlob
                 });
+
+                if (!detectionsUploadResponse.ok) {
+                    throw new Error('Failed to upload detections');
+                }
 
                 // Add to feed
                 addToFeed({

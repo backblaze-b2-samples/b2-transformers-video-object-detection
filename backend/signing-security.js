@@ -34,7 +34,12 @@ function cleanupSigningState(state) {
   for (const [token, session] of state.sessions) {
     if (session.expiresAt <= now) {
       state.sessions.delete(token);
-      state.rateLimits.delete(token);
+    }
+  }
+
+  for (const [key, rateLimit] of state.rateLimits) {
+    if (rateLimit.windowExpiresAt <= now) {
+      state.rateLimits.delete(key);
     }
   }
 
