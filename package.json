@@ -11,7 +11,7 @@
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f"
   },
-  "keywords": ["yolov9", "object-detection", "video-object-detection", "real-time-detection", "computer-vision", "coco", "bounding-box", "webcam", "transformers-js", "webassembly", "browser-ai", "client-side-ai", "backblaze", "b2", "s3", "cloud-storage", "javascript", "monitoring"],
+  "keywords": ["yolov9", "object-detection", "video-object-detection", "real-time-detection", "computer-vision", "coco", "bounding-box", "webcam", "transformers-js", "webassembly", "browser-ai", "client-side-ai", "backblaze", "b2", "b2-labs", "backblaze-b2", "s3", "cloud-storage", "cloudstorage", "javascript", "monitoring"],
   "author": "",
   "license": "MIT"
 }
