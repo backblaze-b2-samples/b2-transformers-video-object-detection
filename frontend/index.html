@@ -634,7 +634,22 @@
 
             const response = await fetch(`${API_BASE}/api/session`, { method: 'POST' });
             if (!response.ok) {
-                throw new Error('Failed to create upload session');
+                let message = 'Failed to create upload session';
+                try {
+                    const errorBody = await response.json();
+                    if (errorBody.error) {
+                        message += `: ${errorBody.error}`;
+                    }
+                } catch {
+                    // Keep the default message if the server did not return JSON.
+                }
+
+                const retryAfter = response.headers.get('Retry-After');
+                if (retryAfter) {
+                    message += `. Retry after ${retryAfter} seconds`;
+                }
+
+                throw new Error(message);
             }
 
             const session = await response.json();
