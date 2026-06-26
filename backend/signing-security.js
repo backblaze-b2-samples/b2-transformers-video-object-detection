@@ -96,6 +96,8 @@ export function getSigningSession(state, token) {
 }
 
 export function checkSigningRateLimit(state, token) {
+  cleanupSigningState(state);
+
   const now = state.now();
   const current = state.rateLimits.get(token);
 

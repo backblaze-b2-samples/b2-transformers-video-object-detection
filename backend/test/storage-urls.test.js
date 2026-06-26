@@ -28,10 +28,12 @@ test('snapshot read URL is presigned and expiring by default', async () => {
     key: 'snapshots/test.png',
     expiresIn: 3600,
   });
+  const parsedUrl = new URL(url);
 
   assert.match(url, /X-Amz-Expires=3600/);
   assert.match(url, /X-Amz-Signature=/);
-  assert.ok(!url.startsWith('https://example.com/file/sample-bucket'));
+  assert.equal(parsedUrl.hostname, 's3.us-west-002.backblazeb2.com');
+  assert.equal(parsedUrl.pathname, '/sample-bucket/snapshots/test.png');
 });
 
 test('detection read URL is presigned instead of a public object URL', async () => {
@@ -42,10 +44,12 @@ test('detection read URL is presigned instead of a public object URL', async () 
     key: 'detections/test.json',
     expiresIn: 3600,
   });
+  const parsedUrl = new URL(url);
 
   assert.match(url, /X-Amz-Expires=3600/);
   assert.match(url, /X-Amz-Signature=/);
-  assert.ok(!url.startsWith('https://example.com/file/sample-bucket'));
+  assert.equal(parsedUrl.hostname, 's3.us-west-002.backblazeb2.com');
+  assert.equal(parsedUrl.pathname, '/sample-bucket/detections/test.json');
 });
 
 test('snapshot upload URL signs content length for size enforcement', async () => {

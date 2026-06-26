@@ -2,7 +2,6 @@ import assert from 'assert/strict';
 import test from 'node:test';
 import {
   checkSigningRateLimit,
-  createSigningSession,
   createSigningState,
 } from '../signing-security.js';
 
@@ -17,7 +16,8 @@ test('cleanup removes expired rate limits for session creation keys', () => {
   assert.equal(state.rateLimits.size, 1);
 
   now += 11;
-  createSigningSession(state);
+  checkSigningRateLimit(state, 'session:127.0.0.2');
 
-  assert.equal(state.rateLimits.size, 0);
+  assert.equal(state.rateLimits.size, 1);
+  assert.equal(state.rateLimits.has('session:127.0.0.2'), true);
 });
