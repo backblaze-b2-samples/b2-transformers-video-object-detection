@@ -82,11 +82,10 @@ B2_APPLICATION_KEY_ID=your_key_id_here
 B2_APPLICATION_KEY=your_application_key_here
 B2_BUCKET_NAME=your-bucket-name
 B2_REGION=us-west-002
-# Optional: base URL for publicly readable bucket files
-# B2_PUBLIC_URL_BASE=https://f000.backblazeb2.com/file/your-bucket-name
+B2_PUBLIC_URL_BASE=https://f005.backblazeb2.com/file/your-bucket-name
 ```
 
-> Get your B2 region from your bucket details page.
+> Get your B2 region from your bucket details page. `B2_PUBLIC_URL_BASE` is included for compatibility with Backblaze B2 sample standards; the app returns expiring pre-signed read URLs by default.
 
 ### 3. Start the App
 
@@ -169,12 +168,30 @@ docker-compose up -d
 
 ## API Endpoints
 
+### POST /api/session
+
+Creates a short-lived upload signing session. Send the returned `token` in the `x-b2-sample-session` header for signing requests.
+
+Response:
+```json
+{
+  "token": "uuid",
+  "header": "x-b2-sample-session",
+  "expiresAt": "<dynamic ISO timestamp>",
+  "maxSnapshotBytes": 5242880,
+  "maxDetectionsBytes": 262144
+}
+```
+
 ### POST /api/presign-snapshot
+
+Requires `x-b2-sample-session`. Only `image/png` snapshots within `maxSnapshotBytes` are signed.
 
 Request:
 ```json
 {
-  "contentType": "image/png"
+  "contentType": "image/png",
+  "contentLength": 123456
 }
 ```
 
@@ -188,12 +205,17 @@ Response:
 }
 ```
 
+`publicUrl` is an expiring pre-signed read URL.
+
 ### POST /api/presign-detections
+
+Requires `x-b2-sample-session`. The `fileId` must come from a snapshot signed for the same session and can be used once.
 
 Request:
 ```json
 {
-  "fileId": "uuid"
+  "fileId": "uuid",
+  "contentLength": 2048
 }
 ```
 
@@ -205,6 +227,8 @@ Response:
   "key": "detections/uuid.json"
 }
 ```
+
+`publicUrl` is an expiring pre-signed read URL.
 
 ## Technical Details
 

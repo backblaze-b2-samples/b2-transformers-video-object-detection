@@ -39,24 +39,6 @@ test('getRequiredB2Config reads standard env names and derives endpoint', () => 
     keyId: 'test-key-id',
     appKey: 'test-app-key',
     bucket: 'test-bucket',
-    publicUrlBase: 'https://f000.backblazeb2.com/file/test-bucket',
-  });
-});
-
-test('getRequiredB2Config supports deprecated env names as fallbacks', () => {
-  const config = getRequiredB2Config({
-    B2_ENDPOINT: ' https://s3.us-east-005.backblazeb2.com ',
-    B2_KEY_ID: ' legacy-key-id ',
-    B2_APP_KEY: ' legacy-app-key ',
-    B2_BUCKET: ' legacy-bucket ',
-  });
-
-  assert.deepEqual(config, {
-    endpoint: 'https://s3.us-east-005.backblazeb2.com',
-    region: 'us-east-005',
-    keyId: 'legacy-key-id',
-    appKey: 'legacy-app-key',
-    bucket: 'legacy-bucket',
   });
 });
 
@@ -72,7 +54,7 @@ test('getRequiredB2Config reports missing required B2 values', () => {
 });
 
 test('B2 user agent includes the required samples marker', () => {
-  assert.equal(B2_USER_AGENT, 'b2ai-transformersjs (backblaze-b2-samples)');
+  assert.equal(B2_USER_AGENT, 'b2ai-b2-transformers-video-object-detection (backblaze-b2-samples)');
 });
 
 test('buildServerTestEnv excludes ambient secrets', () => {

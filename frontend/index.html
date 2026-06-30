@@ -616,6 +616,7 @@
         let currentDetections = [];
         let captureCount = 0;
         let feedItems = [];
+        let signingSession = null;
 
         function showStatus(message, type = 'info') {
             status.textContent = message;
@@ -624,6 +625,65 @@
 
         function hideStatus() {
             status.className = 'status-message';
+        }
+
+        async function getSigningSession() {
+            if (signingSession && signingSession.expiresAtMs - Date.now() > 60000) {
+                return signingSession;
+            }
+
+            const response = await fetch(`${API_BASE}/api/session`, { method: 'POST' });
+            if (!response.ok) {
+                let message = 'Failed to create upload session';
+                try {
+                    const errorBody = await response.json();
+                    if (errorBody.error) {
+                        message += `: ${errorBody.error}`;
+                    }
+                } catch {
+                    // Keep the default message if the server did not return JSON.
+                }
+
+                const retryAfter = response.headers.get('Retry-After');
+                if (retryAfter) {
+                    message += `. Retry after ${retryAfter} seconds`;
+                }
+
+                throw new Error(message);
+            }
+
+            const session = await response.json();
+            signingSession = {
+                expiresAtMs: Date.parse(session.expiresAt),
+                header: session.header,
+                token: session.token,
+            };
+
+            return signingSession;
+        }
+
+        async function getSigningHeaders(headers = {}) {
+            const session = await getSigningSession();
+            return {
+                ...headers,
+                [session.header]: session.token,
+            };
+        }
+
+        async function postSigningRequest(path, body) {
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const response = await fetch(`${API_BASE}${path}`, {
+                    method: 'POST',
+                    headers: await getSigningHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify(body)
+                });
+
+                if (response.status !== 401 || attempt === 1) {
+                    return response;
+                }
+
+                signingSession = null;
+            }
         }
 
         function setStreamSize(width, height) {
@@ -890,11 +950,16 @@
                     captureCtx.fillText(label, xmin + 2, ymin - 5);
                 });
 
+                // Convert canvas to blob before signing so the server can bind the upload size
+                const blob = await new Promise(resolve => captureCanvas.toBlob(resolve, 'image/png'));
+                if (!blob) {
+                    throw new Error('Failed to create snapshot image');
+                }
+
                 // Get pre-signed URL for snapshot
-                const presignResponse = await fetch(`${API_BASE}/api/presign-snapshot`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contentType: 'image/png' })
+                const presignResponse = await postSigningRequest('/api/presign-snapshot', {
+                    contentLength: blob.size,
+                    contentType: 'image/png'
                 });
 
                 if (!presignResponse.ok) {
@@ -903,8 +968,6 @@
 
                 const { uploadUrl, publicUrl, fileId } = await presignResponse.json();
 
-                // Convert canvas to blob and upload
-                const blob = await new Promise(resolve => captureCanvas.toBlob(resolve, 'image/png'));
                 const uploadResponse = await fetch(uploadUrl, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'image/png' },
@@ -915,20 +978,6 @@
                     throw new Error('Failed to upload snapshot');
                 }
 
-                // Get pre-signed URL for detections
-                const detectionsPresignResponse = await fetch(`${API_BASE}/api/presign-detections`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fileId })
-                });
-
-                if (!detectionsPresignResponse.ok) {
-                    throw new Error('Failed to get detections pre-signed URL');
-                }
-
-                const { uploadUrl: detectionsUploadUrl, publicUrl: detectionsPublicUrl } = await detectionsPresignResponse.json();
-
-                // Upload detection data
                 const detectionData = {
                     timestamp: timestamp.toISOString(),
                     snapshotUrl: publicUrl,
@@ -937,12 +986,30 @@
                     detections: detections,
                     totalObjects: detections.length
                 };
+                const detectionBody = JSON.stringify(detectionData, null, 2);
+                const detectionBlob = new Blob([detectionBody], { type: 'application/json' });
 
-                await fetch(detectionsUploadUrl, {
+                // Get pre-signed URL for detections
+                const detectionsPresignResponse = await postSigningRequest('/api/presign-detections', {
+                    contentLength: detectionBlob.size,
+                    fileId
+                });
+
+                if (!detectionsPresignResponse.ok) {
+                    throw new Error('Failed to get detections pre-signed URL');
+                }
+
+                const { uploadUrl: detectionsUploadUrl, publicUrl: detectionsPublicUrl } = await detectionsPresignResponse.json();
+
+                const detectionsUploadResponse = await fetch(detectionsUploadUrl, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(detectionData, null, 2)
+                    body: detectionBlob
                 });
+
+                if (!detectionsUploadResponse.ok) {
+                    throw new Error('Failed to upload detections');
+                }
 
                 // Add to feed
                 addToFeed({
