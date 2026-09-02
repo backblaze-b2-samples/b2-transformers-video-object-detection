@@ -9,6 +9,8 @@ import {
   SIGNING_SESSION_HEADER,
   SNAPSHOT_CONTENT_TYPE,
   createSigningState,
+  createSigningSession,
+  registerCapture,
 } from '../signing-security.js';
 
 function createTestApp(options = {}) {
@@ -28,7 +30,7 @@ function createTestApp(options = {}) {
     signReadUrl: async ({ key }) => `https://read.example/${key}`,
   });
 
-  return { app, signedPuts };
+  return { app, signedPuts, signingState };
 }
 
 async function withServer(app, callback) {
@@ -139,12 +141,58 @@ test('signing requests are rate limited per session', async () => {
   });
 });
 
+test('snapshot presign requests are rate limited by client address', async () => {
+  const { app, signingState } = createTestApp({ maxSigningRequests: 1 });
+  const sessionA = createSigningSession(signingState);
+  const sessionB = createSigningSession(signingState);
+
+  await withServer(app, async (baseUrl) => {
+    const first = await postJson(baseUrl, '/api/presign-snapshot', {
+      contentLength: 1024,
+      contentType: SNAPSHOT_CONTENT_TYPE,
+    }, sessionA);
+
+    const second = await postJson(baseUrl, '/api/presign-snapshot', {
+      contentLength: 1024,
+      contentType: SNAPSHOT_CONTENT_TYPE,
+    }, sessionB);
+
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 429);
+  });
+});
+
 test('session creation is rate limited by client address', async () => {
   const { app } = createTestApp({ maxSigningRequests: 1 });
 
   await withServer(app, async (baseUrl) => {
     const first = await fetch(`${baseUrl}/api/session`, { method: 'POST' });
     const second = await fetch(`${baseUrl}/api/session`, { method: 'POST' });
+
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 429);
+  });
+});
+
+test('detection presign requests are rate limited by client address', async () => {
+  const fileIdA = '123e4567-e89b-42d3-a456-426614174000';
+  const fileIdB = '123e4567-e89b-42d3-a456-426614174001';
+  const { app, signingState } = createTestApp({ maxSigningRequests: 1 });
+  const sessionA = createSigningSession(signingState);
+  const sessionB = createSigningSession(signingState);
+
+  registerCapture(signingState, sessionA.token, fileIdA);
+  registerCapture(signingState, sessionB.token, fileIdB);
+
+  await withServer(app, async (baseUrl) => {
+    const first = await postJson(baseUrl, '/api/presign-detections', {
+      contentLength: 512,
+      fileId: fileIdA,
+    }, sessionA);
+    const second = await postJson(baseUrl, '/api/presign-detections', {
+      contentLength: 512,
+      fileId: fileIdB,
+    }, sessionB);
 
     assert.equal(first.status, 200);
     assert.equal(second.status, 429);

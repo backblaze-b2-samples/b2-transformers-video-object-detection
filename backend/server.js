@@ -96,6 +96,12 @@ export function createApp({
 
   // Generate pre-signed PUT URL for snapshot upload
   app.post('/api/presign-snapshot', async (req, res) => {
+    const presignRateLimit = checkSigningRateLimit(signingState, `presign-snapshot:${req.ip}`);
+    if (!presignRateLimit.ok) {
+      reject(res, presignRateLimit);
+      return;
+    }
+
     const sessionToken = authorizeSigningRequest(req, res, signingState);
     if (!sessionToken) {
       return;
@@ -137,6 +143,12 @@ export function createApp({
 
   // Generate pre-signed PUT URL for detection results upload
   app.post('/api/presign-detections', async (req, res) => {
+    const presignRateLimit = checkSigningRateLimit(signingState, `presign-detections:${req.ip}`);
+    if (!presignRateLimit.ok) {
+      reject(res, presignRateLimit);
+      return;
+    }
+
     const sessionToken = authorizeSigningRequest(req, res, signingState);
     if (!sessionToken) {
       return;
