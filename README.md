@@ -147,6 +147,7 @@ npm run setup-cors
 
 **Railway / Render / Fly.io**:
 - Set environment variables from `.env`
+- Set `TRUST_PROXY=1` so client-IP rate limits use `X-Forwarded-For` from the platform proxy
 - Deploy `backend/` directory
 - Update frontend `apiUrl` to deployed URL
 
