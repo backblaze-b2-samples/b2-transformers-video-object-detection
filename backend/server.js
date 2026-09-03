@@ -28,6 +28,37 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const URL_EXPIRY = 3600; // 1 hour
+const DEFAULT_TRUST_PROXY = false;
+
+export function resolveTrustProxy(value = process.env.TRUST_PROXY) {
+  if (value === undefined || value === '') {
+    return DEFAULT_TRUST_PROXY;
+  }
+
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized === '') {
+    return DEFAULT_TRUST_PROXY;
+  }
+
+  if (normalized === 'true') {
+    return true;
+  }
+
+  if (normalized === 'false') {
+    return false;
+  }
+
+  if (/^\d+$/.test(normalized)) {
+    return Number.parseInt(normalized, 10);
+  }
+
+  return value.trim();
+}
 
 function reject(res, result) {
   if (result.retryAfterSeconds) {
@@ -67,10 +98,12 @@ export function createApp({
     key,
     expiresIn: URL_EXPIRY,
   }),
+  trustProxy = resolveTrustProxy(),
 } = {}) {
   const app = express();
   const BUCKET = b2Config.bucketName;
 
+  app.set('trust proxy', trustProxy);
   app.use(cors());
   app.use(express.json({ limit: '1mb' }));
 
@@ -96,6 +129,12 @@ export function createApp({
 
   // Generate pre-signed PUT URL for snapshot upload
   app.post('/api/presign-snapshot', async (req, res) => {
+    const presignRateLimit = checkSigningRateLimit(signingState, `presign-snapshot:${req.ip}`);
+    if (!presignRateLimit.ok) {
+      reject(res, presignRateLimit);
+      return;
+    }
+
     const sessionToken = authorizeSigningRequest(req, res, signingState);
     if (!sessionToken) {
       return;
@@ -137,6 +176,12 @@ export function createApp({
 
   // Generate pre-signed PUT URL for detection results upload
   app.post('/api/presign-detections', async (req, res) => {
+    const presignRateLimit = checkSigningRateLimit(signingState, `presign-detections:${req.ip}`);
+    if (!presignRateLimit.ok) {
+      reject(res, presignRateLimit);
+      return;
+    }
+
     const sessionToken = authorizeSigningRequest(req, res, signingState);
     if (!sessionToken) {
       return;

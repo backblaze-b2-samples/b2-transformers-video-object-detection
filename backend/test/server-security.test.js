@@ -2,13 +2,15 @@ import assert from 'assert/strict';
 import { createServer } from 'http';
 import { once } from 'events';
 import test from 'node:test';
-import { createApp } from '../server.js';
+import { createApp, resolveTrustProxy } from '../server.js';
 import {
   DETECTIONS_CONTENT_TYPE,
   MAX_SNAPSHOT_BYTES,
   SIGNING_SESSION_HEADER,
   SNAPSHOT_CONTENT_TYPE,
   createSigningState,
+  createSigningSession,
+  registerCapture,
 } from '../signing-security.js';
 
 function createTestApp(options = {}) {
@@ -26,9 +28,10 @@ function createTestApp(options = {}) {
       return `https://upload.example/${command.input.Key}`;
     },
     signReadUrl: async ({ key }) => `https://read.example/${key}`,
+    trustProxy: options.trustProxy,
   });
 
-  return { app, signedPuts };
+  return { app, signedPuts, signingState };
 }
 
 async function withServer(app, callback) {
@@ -54,8 +57,8 @@ async function createSession(baseUrl) {
   return response.json();
 }
 
-function postJson(baseUrl, path, body, session) {
-  const headers = { 'Content-Type': 'application/json' };
+function postJson(baseUrl, path, body, session, extraHeaders = {}) {
+  const headers = { 'Content-Type': 'application/json', ...extraHeaders };
 
   if (session) {
     headers[SIGNING_SESSION_HEADER] = session.token;
@@ -139,6 +142,48 @@ test('signing requests are rate limited per session', async () => {
   });
 });
 
+test('snapshot presign requests are rate limited by client address', async () => {
+  const { app, signingState } = createTestApp({ maxSigningRequests: 1 });
+  const sessionA = createSigningSession(signingState);
+  const sessionB = createSigningSession(signingState);
+
+  await withServer(app, async (baseUrl) => {
+    const first = await postJson(baseUrl, '/api/presign-snapshot', {
+      contentLength: 1024,
+      contentType: SNAPSHOT_CONTENT_TYPE,
+    }, sessionA);
+
+    const second = await postJson(baseUrl, '/api/presign-snapshot', {
+      contentLength: 1024,
+      contentType: SNAPSHOT_CONTENT_TYPE,
+    }, sessionB);
+
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 429);
+  });
+});
+
+test('snapshot presign can rate limit forwarded client addresses', async () => {
+  const { app, signingState } = createTestApp({ maxSigningRequests: 1, trustProxy: 1 });
+  const sessionA = createSigningSession(signingState);
+  const sessionB = createSigningSession(signingState);
+
+  await withServer(app, async (baseUrl) => {
+    const first = await postJson(baseUrl, '/api/presign-snapshot', {
+      contentLength: 1024,
+      contentType: SNAPSHOT_CONTENT_TYPE,
+    }, sessionA, { 'X-Forwarded-For': '203.0.113.10' });
+
+    const second = await postJson(baseUrl, '/api/presign-snapshot', {
+      contentLength: 1024,
+      contentType: SNAPSHOT_CONTENT_TYPE,
+    }, sessionB, { 'X-Forwarded-For': '203.0.113.11' });
+
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 200);
+  });
+});
+
 test('session creation is rate limited by client address', async () => {
   const { app } = createTestApp({ maxSigningRequests: 1 });
 
@@ -149,6 +194,65 @@ test('session creation is rate limited by client address', async () => {
     assert.equal(first.status, 200);
     assert.equal(second.status, 429);
   });
+});
+
+test('detection presign requests are rate limited by client address', async () => {
+  const fileIdA = '123e4567-e89b-42d3-a456-426614174000';
+  const fileIdB = '123e4567-e89b-42d3-a456-426614174001';
+  const { app, signingState } = createTestApp({ maxSigningRequests: 1 });
+  const sessionA = createSigningSession(signingState);
+  const sessionB = createSigningSession(signingState);
+
+  registerCapture(signingState, sessionA.token, fileIdA);
+  registerCapture(signingState, sessionB.token, fileIdB);
+
+  await withServer(app, async (baseUrl) => {
+    const first = await postJson(baseUrl, '/api/presign-detections', {
+      contentLength: 512,
+      fileId: fileIdA,
+    }, sessionA);
+    const second = await postJson(baseUrl, '/api/presign-detections', {
+      contentLength: 512,
+      fileId: fileIdB,
+    }, sessionB);
+
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 429);
+  });
+});
+
+test('detection presign can rate limit forwarded client addresses', async () => {
+  const fileIdA = '123e4567-e89b-42d3-a456-426614174002';
+  const fileIdB = '123e4567-e89b-42d3-a456-426614174003';
+  const { app, signingState } = createTestApp({ maxSigningRequests: 1, trustProxy: 1 });
+  const sessionA = createSigningSession(signingState);
+  const sessionB = createSigningSession(signingState);
+
+  registerCapture(signingState, sessionA.token, fileIdA);
+  registerCapture(signingState, sessionB.token, fileIdB);
+
+  await withServer(app, async (baseUrl) => {
+    const first = await postJson(baseUrl, '/api/presign-detections', {
+      contentLength: 512,
+      fileId: fileIdA,
+    }, sessionA, { 'X-Forwarded-For': '203.0.113.10' });
+    const second = await postJson(baseUrl, '/api/presign-detections', {
+      contentLength: 512,
+      fileId: fileIdB,
+    }, sessionB, { 'X-Forwarded-For': '203.0.113.11' });
+
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 200);
+  });
+});
+
+test('resolveTrustProxy preserves Express trust proxy values', () => {
+  assert.equal(resolveTrustProxy(undefined), false);
+  assert.equal(resolveTrustProxy(''), false);
+  assert.equal(resolveTrustProxy('true'), true);
+  assert.equal(resolveTrustProxy('false'), false);
+  assert.equal(resolveTrustProxy('1'), 1);
+  assert.equal(resolveTrustProxy('loopback'), 'loopback');
 });
 
 test('detection signing rejects malformed and cross-session file IDs', async () => {
